@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <base target="_top">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #2196F3;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            box-sizing: border-box;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #2196F3;
+        }
+        textarea {
+            width: 100%;
+            height: 300px;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+            transition: border-color 0.3s;
+            box-sizing: border-box;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #2196F3;
+        }
+        .required {
+            color: red;
+        }
+        .btn {
+            width: 100%;
+            padding: 15px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+            margin-top: 20px;
+        }
+        .btn-primary {
+            background-color: #2196F3;
+            color: white;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background-color: #1976D2;
+        }
+        .btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .message {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #2196F3;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .help-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+        .example {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #495057;
+        }
+        .cancel-btn {
+            background-color: #6c757d;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 15px;
+            float: right;
+        }
+        .cancel-btn:hover {
+            background-color: #5a6268;
+        }
+        .button-group {
+            overflow: auto;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Watch Worksheet 作成</h2>
+            <p>AWBナンバーとChatGPTデータを入力してください</p>
+        </div>
+
+        <form id="worksheetForm">
+            <div class="form-group">
+                <label for="awbNumber">AWB Number <span class="required">*</span></label>
+                <input type="text" id="awbNumber" name="awbNumber" required placeholder="例: 123-4567890">
+                <div class="help-text">
+                    追跡番号を入力してください
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="chatgptData">ChatGPT データ <span class="required">*</span></label>
+                <textarea id="chatgptData" name="chatgptData" required placeholder="ChatGPTから出力されたデータをここに貼り付けてください..."></textarea>
+                <div class="help-text">
+                    ChatGPTの「Watch Import Specialist」から出力されたデータを全てコピー・ペーストしてください。<br>
+                    「=== WATCH WORKSHEET DATA ===」から「=== END DATA ===」の部分が含まれている必要があります。
+                </div>
+
+                <div class="example">
+                    <strong>入力例:</strong><br>
+                    📍 商品概要<br>
+                    - ブランド名: SEIKO<br>
+                    ...<br><br>
+                    === WATCH WORKSHEET DATA ===<br>
+                    Style name/No/Reference: SKX007<br>
+                    Number of Jewels in Movement: 21<br>
+                    Country of Origin of Movement: Japan<br>
+                    ...<br>
+                    === END DATA ===
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button type="submit" class="btn btn-primary" id="createBtn">
+                    📊 Watch Worksheet を作成
+                </button>
+                <button type="button" class="cancel-btn" onclick="google.script.host.close()">
+                    キャンセル
+                </button>
+            </div>
+        </form>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>データを解析してワークシートを作成中...</div>
+        </div>
+
+        <div class="message" id="message"></div>
+    </div>
+
+    <script>
+        document.getElementById('worksheetForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const awbNumber = document.getElementById('awbNumber').value.trim();
+            const chatgptData = document.getElementById('chatgptData').value.trim();
+
+            if (!awbNumber) {
+                showMessage('AWB Numberを入力してください。', 'error');
+                return;
+            }
+
+            if (!chatgptData) {
+                showMessage('ChatGPTデータを入力してください。', 'error');
+                return;
+            }
+
+            if (!chatgptData.includes('=== WATCH WORKSHEET DATA ===') ||
+                !chatgptData.includes('=== END DATA ===')) {
+                showMessage('ChatGPTデータの形式が正しくありません。\n「=== WATCH WORKSHEET DATA ===」から「=== END DATA ===」までの部分が必要です。', 'error');
+                return;
+            }
+
+            showLoading(true);
+
+            google.script.run
+                .withSuccessHandler(onCreateSuccess)
+                .withFailureHandler(onCreateFailure)
+                .createWatchWorksheet(awbNumber, chatgptData);
+        });
+
+        function onCreateSuccess(result) {
+            showLoading(false);
+
+            if (result.success) {
+                showMessage('✅ ' + result.message, 'success');
+
+                document.getElementById('awbNumber').value = '';
+                document.getElementById('chatgptData').value = '';
+
+                setTimeout(() => {
+                    google.script.host.close();
+                }, 5000);
+            } else {
+                showMessage('❌ ' + result.message, 'error');
+            }
+        }
+
+        function onCreateFailure(error) {
+            showLoading(false);
+            showMessage('❌ ワークシート作成中にエラーが発生しました: ' + error.message, 'error');
+        }
+
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerHTML = text.replace(/\n/g, '<br>');
+            messageDiv.className = 'message ' + type;
+            messageDiv.style.display = 'block';
+
+            if (type === 'error') {
+                setTimeout(() => {
+                    messageDiv.style.display = 'none';
+                }, 10000);
+            }
+        }
+
+        function showLoading(show) {
+            const loading = document.getElementById('loading');
+            const createBtn = document.getElementById('createBtn');
+            const form = document.getElementById('worksheetForm');
+
+            if (show) {
+                loading.style.display = 'block';
+                createBtn.disabled = true;
+                form.style.opacity = '0.6';
+            } else {
+                loading.style.display = 'none';
+                createBtn.disabled = false;
+                form.style.opacity = '1';
+            }
+        }
+
+        document.getElementById('chatgptData').addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.max(300, this.scrollHeight) + 'px';
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                document.getElementById('worksheetForm').dispatchEvent(new Event('submit'));
+            }
+        });
+
+        window.addEventListener('load', function() {
+            document.getElementById('awbNumber').focus();
+        });
+    </script>
+</body>
+</html>
