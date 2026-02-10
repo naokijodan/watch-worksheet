@@ -362,11 +362,12 @@ function generateNewFormatWorksheet(data) {
 function createNewFormatTemplate(sheet) {
   sheet.clear();
 
-  for (let i = 1; i <= 4; i++) {
+  // 2列のみ（A列：ラベル、B列：Watch 1データ）
+  for (let i = 1; i <= 2; i++) {
     sheet.setColumnWidth(i, 450);
   }
 
-  const titleRange = sheet.getRange(1, 1, 1, 4);
+  const titleRange = sheet.getRange(1, 1, 1, 2);
   titleRange.merge();
   titleRange.setValue('Watch Worksheet');
   titleRange.setFontSize(14);
@@ -375,18 +376,16 @@ function createNewFormatTemplate(sheet) {
   titleRange.setBackground('#4472C4');
   titleRange.setFontColor('#FFFFFF');
 
-  const headers = ['', 'Watch 1', 'Watch 2', 'Watch 3'];
+  // Watch 1のみ
+  const headers = ['', 'Watch 1'];
   for (let i = 0; i < headers.length; i++) {
     sheet.getRange(2, i + 1).setValue(headers[i]);
   }
 
-  const cbRule = SpreadsheetApp.newDataValidation().requireCheckbox().build();
-
+  // 新形式：全て記述式（チェックボックスなし）
   const labels = [
     'Style name/No/Reference',
     'Style of watch',
-    '  Wrist',
-    '  Pocket',
     '  If Other, provide type',
     'Quantity',
     'HTSUS Number (if known)',
@@ -394,46 +393,23 @@ function createNewFormatTemplate(sheet) {
     'HTSUS Number (if known)',
     'HTSUS Number (if known)',
     'What is the primary function of watch',
-    '  Timekeeping',
-    '  GPS',
-    '  Heart Monitor',
-    '  Wi-Fi',
-    '  Pedometer',
-    '  Other (provide primary function)',
+    '  If Other, provide primary function',
     'How is the watch powered',
-    '  Electric (Battery)',
-    '  Automatic Winding (Self Winding)',
-    '  Manual',
     'Country of Origin of the battery',
     'Movement/ Display type',
-    '  Analog (Mechanical) Only',
-    '  Automatic Winding (Self Winding)',
-    '  Manual',
     'Is the movement\'s size over 12mm in thickness and 50mm in width, length, or diameter?',
-    '  Yes',
-    '  No',
-    'Number of Jewels in Movement (must be numeric 0-over 17)',
-    '  0 to 1 Jewels',
-    '  2 to 7 Jewels',
-    '  8 to 17 Jewels',
-    '  over 17 Jewels',
+    'Number of Jewels in Movement',
     'Country of Origin of Movement',
     'Material of Band (Strap)',
-    '  Textile',
-    '  Metal (provide type of metal)',
-    '  Leather (what type of animal)',
-    '  No Band',
+    '  If Leather, provide type of animal',
+    '  If Metal, provide type of metal',
+    '  If Other, provide material',
     'Country of Origin of Band (Strap)',
     'Material of Case',
-    '  Gold/Silver Plated',
-    '  NOT Gold/Silver Plated',
-    '  Metal Clad w/Precious Metal',
-    '  Wholly of Precious Metal',
-    '  Other (provide material)',
+    '  If Other, provide material',
     'Country of Origin of Case',
     'Material of Backplate',
-    '  Wholly of Precious Metal',
-    '  Other (provide material)',
+    '  If Other, provide material',
     'Value Breakout (amount and currency)',
     '  Movement',
     '  Case',
@@ -450,13 +426,6 @@ function createNewFormatTemplate(sheet) {
   let row = 3;
   for (let label of labels) {
     sheet.getRange(row, 1).setValue(label);
-
-    if (label.startsWith('  ') && !label.includes('provide') && !label.includes('If Other')) {
-      for (let col = 2; col <= 4; col++) {
-        sheet.getRange(row, col).setDataValidation(cbRule);
-      }
-    }
-
     row++;
   }
 }
@@ -464,113 +433,127 @@ function createNewFormatTemplate(sheet) {
 function populateNewFormatData(sheet, data, watchColumn) {
   const col = watchColumn + 1;
 
+  // 行3: Style name/No/Reference
   sheet.getRange(3, col).setValue(data.styleRef || '');
-  sheet.getRange(5, col).setValue(true);
-  sheet.getRange(8, col).setValue(data.quantity || 1);
-  sheet.getRange(9, col).setValue(data.htsCode || '');
 
-  sheet.getRange(14, col).setValue(data.primaryFunction === 'Timekeeping');
-  sheet.getRange(15, col).setValue(data.primaryFunction === 'GPS');
-  sheet.getRange(16, col).setValue(data.primaryFunction === 'Heart Monitor');
-  sheet.getRange(17, col).setValue(data.primaryFunction === 'Wi-Fi');
-  sheet.getRange(18, col).setValue(data.primaryFunction === 'Pedometer');
+  // 行4: Style of watch（記述式：Wrist / Pocket / Other）
+  sheet.getRange(4, col).setValue('Wrist');
 
+  // 行5: If Other, provide type（Wrist/Pocket以外の場合のみ）
+  // 通常は空欄
+
+  // 行6: Quantity
+  sheet.getRange(6, col).setValue(data.quantity || 1);
+
+  // 行7-10: HTSUS Number (if known) - 4行
+  const htsNumeric = (data.htsCode || '').replace(/\./g, '');
+  sheet.getRange(7, col).setValue(htsNumeric);
+
+  // 行11: What is the primary function of watch（記述式）
+  sheet.getRange(11, col).setValue(data.primaryFunction || 'Timekeeping');
+
+  // 行12: If Other, provide primary function
+  if (data.primaryFunction && !['Timekeeping', 'GPS', 'Heart Monitor', 'Wi-Fi', 'Pedometer'].includes(data.primaryFunction)) {
+    sheet.getRange(12, col).setValue(data.primaryFunction);
+    sheet.getRange(11, col).setValue('Other');
+  }
+
+  // 行13: How is the watch powered（記述式）
   const isQuartz = String(data.movementType).toLowerCase().includes('quartz');
-  sheet.getRange(21, col).setValue(isQuartz);
-  sheet.getRange(22, col).setValue(!isQuartz);
-
   if (isQuartz) {
-    sheet.getRange(24, col).setValue(data.batteryCountry || 'Japan');
+    sheet.getRange(13, col).setValue('Electric (Battery)');
+  } else if (String(data.movementType).toLowerCase().includes('automatic')) {
+    sheet.getRange(13, col).setValue('Automatic Winding (Self Winding)');
   } else {
-    sheet.getRange(24, col).setValue('N/A');
+    sheet.getRange(13, col).setValue('Manual');
   }
 
-  sheet.getRange(26, col).setValue(!isQuartz);
-  sheet.getRange(31, col).setValue(true);
-
-  const jewelMap = {
-    '0 to 1 Jewels': 33,
-    '2 to 7 Jewels': 34,
-    '8 to 17 Jewels': 35,
-    'over 17 Jewels': 36
-  };
-  if (jewelMap[data.jewels]) {
-    sheet.getRange(jewelMap[data.jewels], col).setValue(true);
-  }
-
-  sheet.getRange(37, col).setValue(data.movementCountry || '');
-
-  const bandMap = {
-    'Textile': 39,
-    'Metal': 40,
-    'Leather': 41,
-    'No Band': 42
-  };
-  if (bandMap[data.bandMaterial]) {
-    const bandRow = bandMap[data.bandMaterial];
-    sheet.getRange(bandRow, col).setValue(true);
-
-    if (data.bandMaterial === 'Metal' && data.bandDetail) {
-      sheet.getRange(40, col).setValue(data.bandDetail);
-    }
-    if (data.bandMaterial === 'Leather' && data.bandDetail) {
-      sheet.getRange(41, col).setValue(data.bandDetail);
-    }
-  }
-
-  sheet.getRange(43, col).setValue(data.bandCountry || '');
-
-  const caseMap = {
-    'Gold/Silver Plated': 45,
-    'NOT Gold/Silver Plated': 46,
-    'Metal Clad w/Precious Metal': 47,
-    'Wholly of Precious Metal': 48,
-    'Other': 49
-  };
-  if (caseMap[data.caseMaterial]) {
-    const caseRow = caseMap[data.caseMaterial];
-    sheet.getRange(caseRow, col).setValue(true);
-
-    if (data.caseDetail) {
-      if (data.caseMaterial === 'Other') {
-        sheet.getRange(49, col).setValue(data.caseDetail);
-      } else if (data.caseMaterial === 'NOT Gold/Silver Plated') {
-        sheet.getRange(49, col).setValue(data.caseDetail);
-      }
-    }
-  }
-
-  sheet.getRange(50, col).setValue(data.caseCountry || '');
-
-  if (data.backplateMaterial === 'Wholly of Precious Metal') {
-    sheet.getRange(52, col).setValue(true);
+  // 行14: Country of Origin of the battery
+  if (isQuartz) {
+    sheet.getRange(14, col).setValue(data.batteryCountry || 'Japan');
   } else {
-    sheet.getRange(53, col).setValue(true);
-    if (data.backplateDetail) {
-      sheet.getRange(53, col).setValue(data.backplateDetail);
-    } else {
-      sheet.getRange(53, col).setValue('Other');
-    }
+    sheet.getRange(14, col).setValue('N/A');
   }
 
+  // 行15: Movement/ Display type（記述式）
+  sheet.getRange(15, col).setValue(data.movementType || '');
+
+  // 行16: Is the movement's size over 12mm...（記述式：Yes/No）
+  sheet.getRange(16, col).setValue('No');
+
+  // 行17: Number of Jewels in Movement（数値直接入力）
+  let jewelCount = 0;
+  if (data.jewels) {
+    if (data.jewels === '0 to 1 Jewels') jewelCount = 0;
+    else if (data.jewels === '2 to 7 Jewels') jewelCount = 5;
+    else if (data.jewels === '8 to 17 Jewels') jewelCount = 12;
+    else if (data.jewels === 'over 17 Jewels') jewelCount = 21;
+  }
+  sheet.getRange(17, col).setValue(jewelCount);
+
+  // 行18: Country of Origin of Movement
+  sheet.getRange(18, col).setValue(data.movementCountry || '');
+
+  // 行19: Material of Band (Strap)（記述式）
+  sheet.getRange(19, col).setValue(data.bandMaterial || '');
+
+  // 行20-22: Band詳細（該当する行に記入）
+  if (data.bandMaterial === 'Leather' && data.bandDetail) {
+    sheet.getRange(20, col).setValue(data.bandDetail);
+  }
+  if (data.bandMaterial === 'Metal' && data.bandDetail) {
+    sheet.getRange(21, col).setValue(data.bandDetail);
+  }
+  if (data.bandMaterial && !['Textile', 'Metal', 'Leather', 'No Band'].includes(data.bandMaterial)) {
+    sheet.getRange(22, col).setValue(data.bandMaterial);
+    sheet.getRange(19, col).setValue('Other');
+  }
+
+  // 行23: Country of Origin of Band (Strap)
+  sheet.getRange(23, col).setValue(data.bandCountry || '');
+
+  // 行24: Material of Case（記述式）
+  sheet.getRange(24, col).setValue(data.caseMaterial || '');
+
+  // 行25: If Other, provide material（Case）
+  if (data.caseMaterial === 'Other' && data.caseDetail) {
+    sheet.getRange(25, col).setValue(data.caseDetail);
+  }
+
+  // 行26: Country of Origin of Case
+  sheet.getRange(26, col).setValue(data.caseCountry || '');
+
+  // 行27: Material of Backplate（記述式）
+  sheet.getRange(27, col).setValue(data.backplateMaterial || '');
+
+  // 行28: If Other, provide material（Backplate）
+  if (data.backplateMaterial !== 'Wholly of Precious Metal' && data.backplateDetail) {
+    sheet.getRange(28, col).setValue(data.backplateDetail);
+  }
+
+  // 行29-34: Value Breakout
   const currency = data.currency || 'USD';
-  sheet.getRange(55, col).setValue(data.movementValue ? data.movementValue.toFixed(2) + ' ' + currency : '');
-  sheet.getRange(56, col).setValue(data.caseValue ? data.caseValue.toFixed(2) + ' ' + currency : '');
-  sheet.getRange(57, col).setValue(data.strapValue ? data.strapValue.toFixed(2) + ' ' + currency : '');
-  sheet.getRange(58, col).setValue(data.batteryValue ? data.batteryValue.toFixed(2) + ' ' + currency : '');
-  sheet.getRange(59, col).setValue(data.totalValue ? data.totalValue.toFixed(2) + ' ' + currency : '');
+  // 行29はラベルのみ
+  sheet.getRange(30, col).setValue(data.movementValue ? data.movementValue.toFixed(2) + ' ' + currency : '');
+  sheet.getRange(31, col).setValue(data.caseValue ? data.caseValue.toFixed(2) + ' ' + currency : '');
+  sheet.getRange(32, col).setValue(data.strapValue ? data.strapValue.toFixed(2) + ' ' + currency : '');
+  sheet.getRange(33, col).setValue(data.batteryValue ? data.batteryValue.toFixed(2) + ' ' + currency : '');
+  sheet.getRange(34, col).setValue(data.totalValue ? data.totalValue.toFixed(2) + ' ' + currency : '');
 
+  // 行35は空行
+
+  // 行36-39: Company info
   if (watchColumn === 1) {
-    sheet.getRange(61, col).setValue(data.companyName || '');
-    sheet.getRange(62, col).setValue(data.nameAndTitle || '');
-    sheet.getRange(63, col).setValue(data.email || '');
-    sheet.getRange(64, col).setValue(data.awbNumber || '');
+    sheet.getRange(36, col).setValue(data.companyName || '');
+    sheet.getRange(37, col).setValue(data.nameAndTitle || '');
+    sheet.getRange(38, col).setValue(data.email || '');
+    sheet.getRange(39, col).setValue(data.awbNumber || '');
   }
 }
 
 function formatNewFormatWorksheet(sheet) {
-  const lastRow = 64;
-  const lastCol = 4;
+  const lastRow = 39;
+  const lastCol = 2;  // 2列のみ（A列、B列）
 
   sheet.getRange(1, 1, lastRow, lastCol).setFontFamily('Arial').setFontSize(9);
   sheet.getRange(1, 1, 1, lastCol).setFontSize(14);
@@ -610,8 +593,10 @@ function formatNewFormatWorksheet(sheet) {
     sheet.setRowHeight(row, 20);
   }
 
-  sheet.getRange(54, 1, 6, lastCol).setBackground('#FFF2CC');
-  sheet.getRange(61, 1, 4, lastCol).setBackground('#D9E1F2');
+  // Value Breakout セクション（行29-34）を黄色背景に
+  sheet.getRange(29, 1, 6, lastCol).setBackground('#FFF2CC');
+  // Company info セクション（行36-39）を青背景に
+  sheet.getRange(36, 1, 4, lastCol).setBackground('#D9E1F2');
 }
 
 // ===========================================
@@ -788,84 +773,87 @@ function exportCurrentSheetToDHLPDFv2() {
 function extractDataFromNewFormatSheet(sheet) {
   const data = {};
 
+  // 行3: Style name/No/Reference
   data.styleRef = sheet.getRange(3, 2).getValue() || '';
-  data.quantity = sheet.getRange(8, 2).getValue() || 1;
-  data.htsCode = sheet.getRange(9, 2).getValue() || '';
 
-  // Primary function
-  if (sheet.getRange(14, 2).getValue()) data.primaryFunction = 'Timekeeping';
-  else if (sheet.getRange(15, 2).getValue()) data.primaryFunction = 'GPS';
-  else if (sheet.getRange(16, 2).getValue()) data.primaryFunction = 'Heart Monitor';
-  else if (sheet.getRange(17, 2).getValue()) data.primaryFunction = 'Wi-Fi';
-  else if (sheet.getRange(18, 2).getValue()) data.primaryFunction = 'Pedometer';
-  else data.primaryFunction = 'Timekeeping';
+  // 行6: Quantity
+  data.quantity = sheet.getRange(6, 2).getValue() || 1;
 
-  // Movement Type
-  const isElectric = sheet.getRange(21, 2).getValue();
-  const isAutoWinding = sheet.getRange(22, 2).getValue();
-  if (isElectric) {
-    // Battery Country をチェックしてソーラーかどうか判定
-    const batteryOrigin = sheet.getRange(24, 2).getValue() || '';
-    if (batteryOrigin === 'N/A' || batteryOrigin.toLowerCase().includes('solar')) {
-      data.movementType = 'Solar Quartz';
-    } else {
-      data.movementType = 'Quartz';
-    }
-  } else if (isAutoWinding) {
+  // 行7: HTSUS Number
+  data.htsCode = sheet.getRange(7, 2).getValue() || '';
+
+  // 行11: Primary function（記述式）
+  data.primaryFunction = sheet.getRange(11, 2).getValue() || 'Timekeeping';
+
+  // 行13: How is the watch powered（記述式）
+  const powerSource = String(sheet.getRange(13, 2).getValue() || '').toLowerCase();
+  if (powerSource.includes('electric') || powerSource.includes('battery')) {
+    data.movementType = 'Quartz';
+  } else if (powerSource.includes('automatic') || powerSource.includes('self')) {
     data.movementType = 'Automatic';
   } else {
     data.movementType = 'Mechanical';
   }
 
-  data.batteryCountry = sheet.getRange(24, 2).getValue() || 'Japan';
+  // 行14: Country of Origin of the battery
+  data.batteryCountry = sheet.getRange(14, 2).getValue() || 'Japan';
 
-  // Jewels
-  if (sheet.getRange(33, 2).getValue()) data.jewels = '0 to 1 Jewels';
-  else if (sheet.getRange(34, 2).getValue()) data.jewels = '2 to 7 Jewels';
-  else if (sheet.getRange(35, 2).getValue()) data.jewels = '8 to 17 Jewels';
-  else if (sheet.getRange(36, 2).getValue()) data.jewels = 'over 17 Jewels';
-  else data.jewels = '0 to 1 Jewels';
+  // 行15: Movement/ Display type（記述式）
+  const movementDisplay = sheet.getRange(15, 2).getValue() || '';
+  if (movementDisplay) {
+    data.movementType = movementDisplay;
+  }
 
-  data.movementCountry = sheet.getRange(37, 2).getValue() || '';
+  // 行17: Number of Jewels in Movement（数値）
+  const jewelCount = parseInt(sheet.getRange(17, 2).getValue() || '0', 10);
+  if (jewelCount <= 1) data.jewels = '0 to 1 Jewels';
+  else if (jewelCount <= 7) data.jewels = '2 to 7 Jewels';
+  else if (jewelCount <= 17) data.jewels = '8 to 17 Jewels';
+  else data.jewels = 'over 17 Jewels';
 
-  // Band Material
-  if (sheet.getRange(39, 2).getValue()) data.bandMaterial = 'Textile';
-  else if (sheet.getRange(40, 2).getValue()) data.bandMaterial = 'Metal';
-  else if (sheet.getRange(41, 2).getValue()) data.bandMaterial = 'Leather';
-  else if (sheet.getRange(42, 2).getValue()) data.bandMaterial = 'No Band';
-  else data.bandMaterial = 'Leather';
+  // 行18: Country of Origin of Movement
+  data.movementCountry = sheet.getRange(18, 2).getValue() || '';
 
-  data.bandCountry = sheet.getRange(43, 2).getValue() || '';
+  // 行19: Material of Band (Strap)（記述式）
+  data.bandMaterial = sheet.getRange(19, 2).getValue() || '';
 
-  // Case Material
-  if (sheet.getRange(45, 2).getValue()) data.caseMaterial = 'Gold/Silver Plated';
-  else if (sheet.getRange(46, 2).getValue()) data.caseMaterial = 'NOT Gold/Silver Plated';
-  else if (sheet.getRange(47, 2).getValue()) data.caseMaterial = 'Metal Clad w/Precious Metal';
-  else if (sheet.getRange(48, 2).getValue()) data.caseMaterial = 'Wholly of Precious Metal';
-  else data.caseMaterial = 'Other';
+  // 行20-22: Band詳細
+  data.bandDetail = sheet.getRange(20, 2).getValue() || sheet.getRange(21, 2).getValue() || sheet.getRange(22, 2).getValue() || '';
 
-  data.caseCountry = sheet.getRange(50, 2).getValue() || '';
+  // 行23: Country of Origin of Band (Strap)
+  data.bandCountry = sheet.getRange(23, 2).getValue() || '';
 
-  // Backplate Material
-  if (sheet.getRange(52, 2).getValue()) data.backplateMaterial = 'Wholly of Precious Metal';
-  else data.backplateMaterial = sheet.getRange(53, 2).getValue() || 'Other';
+  // 行24: Material of Case（記述式）
+  data.caseMaterial = sheet.getRange(24, 2).getValue() || '';
 
-  // Values - 通貨単位も抽出
-  const totalValueStr = String(sheet.getRange(59, 2).getValue() || '').trim();
+  // 行25: Case詳細
+  data.caseDetail = sheet.getRange(25, 2).getValue() || '';
+
+  // 行26: Country of Origin of Case
+  data.caseCountry = sheet.getRange(26, 2).getValue() || '';
+
+  // 行27: Material of Backplate（記述式）
+  data.backplateMaterial = sheet.getRange(27, 2).getValue() || '';
+
+  // 行28: Backplate詳細
+  data.backplateDetail = sheet.getRange(28, 2).getValue() || '';
+
+  // 行30-34: Values - 通貨単位も抽出
+  const totalValueStr = String(sheet.getRange(34, 2).getValue() || '').trim();
   const currencyMatch = totalValueStr.match(/[A-Z]{3}$/);
   data.currency = currencyMatch ? currencyMatch[0] : 'USD';
 
-  data.movementValue = parseFloat(String(sheet.getRange(55, 2).getValue() || '').replace(/[^0-9.]/g, '')) || 0;
-  data.caseValue = parseFloat(String(sheet.getRange(56, 2).getValue() || '').replace(/[^0-9.]/g, '')) || 0;
-  data.strapValue = parseFloat(String(sheet.getRange(57, 2).getValue() || '').replace(/[^0-9.]/g, '')) || 0;
-  data.batteryValue = parseFloat(String(sheet.getRange(58, 2).getValue() || '').replace(/[^0-9.]/g, '')) || 0;
-  data.totalValue = parseFloat(String(sheet.getRange(59, 2).getValue() || '').replace(/[^0-9.]/g, '')) || 0;
+  data.movementValue = parseFloat(String(sheet.getRange(30, 2).getValue() || '').replace(/[^0-9.]/g, '')) || 0;
+  data.caseValue = parseFloat(String(sheet.getRange(31, 2).getValue() || '').replace(/[^0-9.]/g, '')) || 0;
+  data.strapValue = parseFloat(String(sheet.getRange(32, 2).getValue() || '').replace(/[^0-9.]/g, '')) || 0;
+  data.batteryValue = parseFloat(String(sheet.getRange(33, 2).getValue() || '').replace(/[^0-9.]/g, '')) || 0;
+  data.totalValue = parseFloat(String(sheet.getRange(34, 2).getValue() || '').replace(/[^0-9.]/g, '')) || 0;
 
-  // Company info
-  data.companyName = sheet.getRange(61, 2).getValue() || '';
-  data.nameAndTitle = sheet.getRange(62, 2).getValue() || '';
-  data.email = sheet.getRange(63, 2).getValue() || '';
-  data.awbNumber = sheet.getRange(64, 2).getValue() || '';
+  // 行36-39: Company info
+  data.companyName = sheet.getRange(36, 2).getValue() || '';
+  data.nameAndTitle = sheet.getRange(37, 2).getValue() || '';
+  data.email = sheet.getRange(38, 2).getValue() || '';
+  data.awbNumber = sheet.getRange(39, 2).getValue() || '';
 
   return data;
 }
