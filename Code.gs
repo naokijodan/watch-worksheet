@@ -274,6 +274,7 @@ function normalizeData(raw) {
   n.currency = currencyMatch ? currencyMatch[0] : 'USD';
 
   n.movementType = raw['Movement Type'] || 'Quartz';
+  n.displayType = raw['Display Type'] || 'Analog';
   n.htsCode = cleanHTSCode(raw['HTS US Code']) || '';
   n.jewels = mapJewelsToDropdown(raw['Number of Jewels in Movement']);
   n.quantity = parseInt(raw['Quantity'] || '1', 10);
@@ -476,7 +477,8 @@ function populateNewFormatData(sheet, data, watchColumn) {
   }
 
   // 行15: Movement/ Display type（記述式）
-  sheet.getRange(15, col).setValue(data.movementType || '');
+  const movementDisplayType = (data.movementType || '') + ', ' + (data.displayType || 'Analog');
+  sheet.getRange(15, col).setValue(movementDisplayType);
 
   // 行16: Is the movement's size over 12mm...（記述式：Yes/No）
   sheet.getRange(16, col).setValue('No');
