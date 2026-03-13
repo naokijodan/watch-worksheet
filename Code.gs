@@ -277,6 +277,14 @@ function normalizeData(raw) {
   n.displayType = raw['Display Type'] || 'Analog';
   n.htsCode = cleanHTSCode(raw['HTS US Code']) || '';
   n.jewels = mapJewelsToDropdown(raw['Number of Jewels in Movement']);
+  // 元のJewel数値を保持（新フォーマットの数値直接入力用）
+  const rawJewels = raw['Number of Jewels in Movement'];
+  if (typeof rawJewels === 'string') {
+    const m = rawJewels.match(/\d+/);
+    n.jewelCount = m ? parseInt(m[0], 10) : 0;
+  } else {
+    n.jewelCount = parseInt(rawJewels || '0', 10);
+  }
   n.quantity = parseInt(raw['Quantity'] || '1', 10);
 
   n.bandMaterial = raw['Material of Band'] || 'Leather';
@@ -484,14 +492,8 @@ function populateNewFormatData(sheet, data, watchColumn) {
   sheet.getRange(16, col).setValue('No');
 
   // 行17: Number of Jewels in Movement（数値直接入力）
-  let jewelCount = 0;
-  if (data.jewels) {
-    if (data.jewels === '0 to 1 Jewels') jewelCount = 0;
-    else if (data.jewels === '2 to 7 Jewels') jewelCount = 5;
-    else if (data.jewels === '8 to 17 Jewels') jewelCount = 12;
-    else if (data.jewels === 'over 17 Jewels') jewelCount = 21;
-  }
-  sheet.getRange(17, col).setValue(jewelCount);
+  // 元の数値をそのまま使用（新フォーマットは数値直接入力）
+  sheet.getRange(17, col).setValue(data.jewelCount || 0);
 
   // 行18: Country of Origin of Movement
   sheet.getRange(18, col).setValue(data.movementCountry || '');
@@ -515,23 +517,33 @@ function populateNewFormatData(sheet, data, watchColumn) {
   sheet.getRange(23, col).setValue(data.bandCountry || '');
 
   // 行24: Material of Case（記述式）
-  sheet.getRange(24, col).setValue(data.caseMaterial || '');
-
-  // 行25: If Other, provide material（Case）
-  if (data.caseMaterial === 'Other' && data.caseDetail) {
-    sheet.getRange(25, col).setValue(data.caseDetail);
+  // caseDetailがある場合は素材名を結合して表示
+  // ただしDetailにカテゴリ語句（Plated/Gold/Silver/Precious）が含まれる場合はDetailのみ使用（二重表記防止）
+  if (data.caseDetail) {
+    const detailLower = String(data.caseDetail).toLowerCase();
+    if (detailLower.includes('plated') || detailLower.includes('gold') || detailLower.includes('silver') || detailLower.includes('precious')) {
+      sheet.getRange(24, col).setValue(data.caseDetail);
+    } else {
+      sheet.getRange(24, col).setValue(data.caseDetail + ', ' + (data.caseMaterial || ''));
+    }
+  } else {
+    sheet.getRange(24, col).setValue(data.caseMaterial || '');
   }
+
+  // 行25: If Other, provide material（Case）- 詳細が行24に入るため通常は空
 
   // 行26: Country of Origin of Case
   sheet.getRange(26, col).setValue(data.caseCountry || '');
 
   // 行27: Material of Backplate（記述式）
-  sheet.getRange(27, col).setValue(data.backplateMaterial || '');
-
-  // 行28: If Other, provide material（Backplate）
-  if (data.backplateMaterial !== 'Wholly of Precious Metal' && data.backplateDetail) {
-    sheet.getRange(28, col).setValue(data.backplateDetail);
+  // backplateDetailがある場合は素材名を直接表示
+  if (data.backplateDetail) {
+    sheet.getRange(27, col).setValue(data.backplateDetail);
+  } else {
+    sheet.getRange(27, col).setValue(data.backplateMaterial || '');
   }
+
+  // 行28: If Other, provide material（Backplate）- 詳細が行27に入るため通常は空
 
   // 行29-34: Value Breakout
   const currency = data.currency || 'USD';
